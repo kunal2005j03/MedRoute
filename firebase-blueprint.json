@@ -1,0 +1,178 @@
+{
+  "entities": {
+    "CuratedTariff": {
+      "title": "CuratedTariff",
+      "description": "Published or curated medical service tariff record for a healthcare provider in India.",
+      "type": "object",
+      "properties": {
+        "providerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140,
+          "description": "Official name of the hospital, clinic, or diagnostic centre."
+        },
+        "googlePlaceId": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Optional Google Maps Place ID for matching Live Mode search results."
+        },
+        "city": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "City in India where the provider is located."
+        },
+        "state": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80,
+          "description": "State or Union Territory in India."
+        },
+        "facilityType": {
+          "type": "string",
+          "enum": ["Hospital", "Clinic", "Diagnostic Centre", "Specialty Institute"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Consultation", "Diagnostics", "Treatment"]
+        },
+        "serviceId": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "serviceName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "publishedChargeInr": {
+          "type": "number",
+          "description": "Published medical charge in INR (must be > 0)."
+        },
+        "chargeType": {
+          "type": "string",
+          "enum": ["Published Tariff", "Official Package Rate", "Verified Schedule"]
+        },
+        "sourceNote": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200,
+          "description": "Reference note explaining where the published tariff was obtained."
+        },
+        "createdByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "providerName",
+        "googlePlaceId",
+        "city",
+        "state",
+        "facilityType",
+        "category",
+        "serviceId",
+        "serviceName",
+        "publishedChargeInr",
+        "chargeType",
+        "sourceNote",
+        "createdByUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "JourneyComparison": {
+      "title": "JourneyComparison",
+      "description": "User-saved side-by-side comparison of estimated medical journeys.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 140
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["demo", "live"]
+        },
+        "category": {
+          "type": "string",
+          "enum": ["Consultation", "Diagnostics", "Treatment"]
+        },
+        "serviceId": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "serviceName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "originLabel": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 180
+        },
+        "accommodationRequired": {
+          "type": "boolean"
+        },
+        "nights": {
+          "type": "number"
+        },
+        "providerCount": {
+          "type": "number"
+        },
+        "summaryLines": {
+          "type": "array",
+          "description": "Up to 4 concise text lines summarizing compared providers and estimated totals."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "ownerId",
+        "title",
+        "mode",
+        "category",
+        "serviceId",
+        "serviceName",
+        "originLabel",
+        "accommodationRequired",
+        "nights",
+        "providerCount",
+        "summaryLines",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/curatedTariffs/{tariffId}": {
+      "schema": { "$ref": "#/entities/CuratedTariff" },
+      "description": "Published/curated medical service charges used in Live Mode when matching real providers."
+    },
+    "/journeyComparisons/{comparisonId}": {
+      "schema": { "$ref": "#/entities/JourneyComparison" },
+      "description": "Private saved provider comparison snapshots owned by an authenticated user."
+    }
+  }
+}

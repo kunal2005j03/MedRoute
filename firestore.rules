@@ -1,0 +1,189 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 1 / Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable security primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'mail2kunaln@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidCuratedTariff(data) {
+      return data.keys().hasAll([
+        'providerName',
+        'googlePlaceId',
+        'city',
+        'state',
+        'facilityType',
+        'category',
+        'serviceId',
+        'serviceName',
+        'publishedChargeInr',
+        'chargeType',
+        'sourceNote',
+        'createdByUid',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'providerName',
+        'googlePlaceId',
+        'city',
+        'state',
+        'facilityType',
+        'category',
+        'serviceId',
+        'serviceName',
+        'publishedChargeInr',
+        'chargeType',
+        'sourceNote',
+        'createdByUid',
+        'createdAt',
+        'updatedAt'
+      ]) &&
+      data.providerName is string && data.providerName.size() >= 2 && data.providerName.size() <= 140 &&
+      data.googlePlaceId is string && data.googlePlaceId.size() <= 160 &&
+      data.city is string && data.city.size() >= 2 && data.city.size() <= 80 &&
+      data.state is string && data.state.size() >= 2 && data.state.size() <= 80 &&
+      data.facilityType in ['Hospital', 'Clinic', 'Diagnostic Centre', 'Specialty Institute'] &&
+      data.category in ['Consultation', 'Diagnostics', 'Treatment'] &&
+      data.serviceId is string && data.serviceId.size() >= 2 && data.serviceId.size() <= 64 && data.serviceId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.serviceName is string && data.serviceName.size() >= 2 && data.serviceName.size() <= 120 &&
+      (data.publishedChargeInr is int || data.publishedChargeInr is float) &&
+      data.publishedChargeInr > 0 && data.publishedChargeInr <= 50000000 &&
+      data.chargeType in ['Published Tariff', 'Official Package Rate', 'Verified Schedule'] &&
+      data.sourceNote is string && data.sourceNote.size() >= 3 && data.sourceNote.size() <= 200 &&
+      data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidJourneyComparison(data) {
+      return data.keys().hasAll([
+        'ownerId',
+        'title',
+        'mode',
+        'category',
+        'serviceId',
+        'serviceName',
+        'originLabel',
+        'accommodationRequired',
+        'nights',
+        'providerCount',
+        'summaryLines',
+        'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerId',
+        'title',
+        'mode',
+        'category',
+        'serviceId',
+        'serviceName',
+        'originLabel',
+        'accommodationRequired',
+        'nights',
+        'providerCount',
+        'summaryLines',
+        'createdAt'
+      ]) &&
+      data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
+      data.ownerId == request.auth.uid &&
+      data.title is string && data.title.size() >= 2 && data.title.size() <= 140 &&
+      data.mode in ['demo', 'live'] &&
+      data.category in ['Consultation', 'Diagnostics', 'Treatment'] &&
+      data.serviceId is string && data.serviceId.size() >= 2 && data.serviceId.size() <= 64 && data.serviceId.matches('^[a-zA-Z0-9_\\-]+$') &&
+      data.serviceName is string && data.serviceName.size() >= 2 && data.serviceName.size() <= 120 &&
+      data.originLabel is string && data.originLabel.size() >= 2 && data.originLabel.size() <= 180 &&
+      data.accommodationRequired is bool &&
+      data.nights is int && data.nights >= 0 && data.nights <= 30 &&
+      data.providerCount is int && data.providerCount >= 2 && data.providerCount <= 4 &&
+      data.summaryLines is list && data.summaryLines.size() >= 1 && data.summaryLines.size() <= 4 &&
+      data.summaryLines[0] is string && data.summaryLines[0].size() <= 220 &&
+      data.createdAt is timestamp;
+    }
+
+    // Curated public medical service tariff records (no user PII)
+    match /curatedTariffs/{tariffId} {
+      allow get: if isValidId(tariffId);
+      allow list: if resource.data.publishedChargeInr > 0;
+      allow create: if isVerifiedUser() &&
+        isValidId(tariffId) &&
+        isValidCuratedTariff(incoming()) &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser() &&
+        isValidId(tariffId) &&
+        isValidCuratedTariff(incoming()) &&
+        incoming().createdByUid == existing().createdByUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            existing().createdByUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'providerName',
+              'googlePlaceId',
+              'city',
+              'state',
+              'facilityType',
+              'publishedChargeInr',
+              'chargeType',
+              'sourceNote',
+              'updatedAt'
+            ])
+          )
+        );
+      allow delete: if isVerifiedUser() &&
+        isValidId(tariffId) &&
+        (isAdmin() || existing().createdByUid == request.auth.uid);
+    }
+
+    // Private saved provider comparisons strictly isolated to owner
+    match /journeyComparisons/{comparisonId} {
+      allow get: if isSignedIn() && isValidId(comparisonId) && existing().ownerId == request.auth.uid;
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      allow create: if isVerifiedUser() &&
+        isValidId(comparisonId) &&
+        isValidJourneyComparison(incoming()) &&
+        incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(comparisonId) && existing().ownerId == request.auth.uid;
+    }
+
+    // Read-only admin lookup table (no client writes)
+    match /admins/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list, write: if false;
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "MedRoute",
+  "description": "Pan-India healthcare navigation and transparent medical journey cost estimator with proximity-based hospital discovery, travel estimates, optional accommodation planning, and side-by-side provider comparison.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
